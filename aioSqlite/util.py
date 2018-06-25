@@ -1,6 +1,6 @@
 import sqlite3
 import asyncio
-
+from .worker import AsyncWorker
 
 def dict_factory(cursor, row):
     d = {}
@@ -24,22 +24,25 @@ class AsyncIteratorWrapper:
         return value
 
 
-class AsyncConnect:
-    def __init__(self, target):
-        self._name = target
+class AsyncContextWrapper:
+    def __init__(self, Context):
+        self._Context = Context
 
     async def __aenter__(self):
-        self.conn = await self.connect()
-        return self.conn
+        return self._Context.__enter__()
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.conn.commit()
-        self.conn.close()
+        return self._Context.__exit__(exc_type, exc, tb)
 
-    async def connect(self):
-        conn = sqlite3.connect(self._name)
-        conn.row_factory = dict_factory
-        return conn
+
+def sqlConn(name):
+    conn = sqlite3.connect(name)
+    conn.row_factory = dict_factory
+    return conn
+
+
+def AsyncConn(name):
+    return AsyncContextWrapper(sqlConn(name))
 
 
 class whereObj:
@@ -115,7 +118,8 @@ class queryObj:
             res += " ORDER BY "
             res += self.orderConditions
         task = self.coro(res)
-        return task
+        return AsyncWorker().wait(task)
+
 
 class deleteObj:
     def __init__(self, coroutine, tableNmae):
@@ -133,7 +137,7 @@ class deleteObj:
         if self.where:
             res += SqlKit.WHERE.format(self.where.whereConditions)
         task = self.coro(res)
-        return task
+        return AsyncWorker().wait(task)
 
 
 class updataObj:
@@ -161,7 +165,8 @@ class updataObj:
         if self.where:
             res += SqlKit.WHERE.format(self.where.whereConditions)
         task = self.coro(res + self.dataConditions, self._data)
-        return task
+        return AsyncWorker().wait(task)
+
 
 class insertObj:
     def __init__(self, coroutine, tableNmae):
@@ -182,9 +187,10 @@ class insertObj:
         return self
 
     def result(self):
-        res = SqlKit.INSERT.format(self.tbName,self.dataConditions,self.valConditions)
+        res = SqlKit.INSERT.format(
+            self.tbName, self.dataConditions, self.valConditions)
         task = self.coro(res, self._data)
-        return task
+        return AsyncWorker().wait(task)
 
 
 class SqlKit:

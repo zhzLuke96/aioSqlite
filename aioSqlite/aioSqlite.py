@@ -1,7 +1,7 @@
 import sqlite3
 import asyncio
-from .util import deleteObj, insertObj, updataObj, queryObj, AsyncConnect
-
+from .util import deleteObj, insertObj, updataObj, queryObj, AsyncConn
+# from .worker import AsyncWorker
 
 class _sql:
     _SQLNAME = ""
@@ -13,14 +13,17 @@ class _sql:
     #     return AsyncConnect(self._SQLNAME).cursor()
 
     async def create_table(self, sqlScript):
-        async with AsyncConnect(self._SQLNAME) as conn:
+        # async with AsyncConnect(self._SQLNAME) as conn:
+        async with AsyncConn(self._SQLNAME) as conn:
             c = conn.cursor()
             c.execute(sqlScript)
 
     async def execute(self, s, vals=[]):
         res = None
-        async with AsyncConnect(self._SQLNAME) as conn:
+        # async with AsyncConnect(self._SQLNAME) as conn:
+        async with AsyncConn(self._SQLNAME) as conn:
             c = conn.cursor()
+            # await asyncio.sleep(10)
             c.execute(s, vals)
             res = c.fetchall()
         return res
@@ -60,10 +63,6 @@ class _table:
         self._db = sqlobj
         self._tableName = tbName
 
-    def data(self, newdata):
-        self._tableName = newdata
-        return self
-
     def insert(self, **kwargs):
         return self._db.insert(self._tableName, **kwargs)
 
@@ -73,17 +72,14 @@ class _table:
     def queryAll(self):
         return self._db.queryAll(self._tableName)
 
-    async def updata(self):
-        if(self._newData is None):
-            return
-        await self._db.updata(self._tableName,
-                              self._newData, self._whereCondition)
+    async def updata(self, **kwargs):
+        await self._db.updata(self._tableName, **kwargs)
 
     def delete(self, **kwargs):
         return self._db.delete(self._tableName, **kwargs)
 
     def quit(self):
-        self._worker.quit()
+        pass
 
 
 class aioSql:
